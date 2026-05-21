@@ -59,18 +59,18 @@ The encoding is injective: distinct paths always produce distinct slugs, so ther
 
 Examples (assuming `$HOME` is `/Users/you`):
 
-| Source                       | Absolute path (leading `/` stripped) | Slug                                 |
+| Source                       | Absolute path                        | Slug                                 |
 |------------------------------|--------------------------------------|--------------------------------------|
-| `~/.claude`                  | `Users/you/.claude`                  | `Users-you-_claude`                  |
-| `~/.config/fish/config.fish` | `Users/you/.config/fish/config.fish` | `Users-you-_config-fish-config.fish` |
-| `~/repos/bu-command`         | `Users/you/repos/bu-command`         | `Users-you-repos-bu--command`        |
-| `~/notes/2026/Q2.md`         | `Users/you/notes/2026/Q2.md`         | `Users-you-notes-2026-Q2.md`         |
-| `/etc/hosts`                 | `etc/hosts`                          | `etc-hosts`                          |
-| `/var/log/system.log`        | `var/log/system.log`                 | `var-log-system.log`                 |
-| `~/.config/.vimrc`           | `Users/you/.config/.vimrc`           | `Users-you-_config-_vimrc`           |
-| `~/_x`                       | `Users/you/_x`                       | `Users-you-__x`                      |
-| `~/foo/-bar`                 | `Users/you/foo/-bar`                 | `Users-you-foo-%2Dbar`               |
-| `~/a%b`                      | `Users/you/a%b`                      | `Users-you-a%25b`                    |
+| `~/.claude`                  | `/Users/you/.claude`                  | `Users-you-_claude`                  |
+| `~/.config/fish/config.fish` | `/Users/you/.config/fish/config.fish` | `Users-you-_config-fish-config.fish` |
+| `~/repos/bu.sh`              | `/Users/you/repos/bu.sh`              | `Users-you-repos-bu.sh`              |
+| `~/notes/2026/Q2.md`         | `/Users/you/notes/2026/Q2.md`         | `Users-you-notes-2026-Q2.md`         |
+| `/etc/hosts`                 | `/etc/hosts`                          | `etc-hosts`                          |
+| `/var/log/system.log`        | `/var/log/system.log`                 | `var-log-system.log`                 |
+| `~/.config/.vimrc`           | `/Users/you/.config/.vimrc`           | `Users-you-_config-_vimrc`           |
+| `~/_x`                       | `/Users/you/_x`                       | `Users-you-__x`                      |
+| `~/foo/-bar`                 | `/Users/you/foo/-bar`                 | `Users-you-foo-%2Dbar`               |
+| `~/a%b`                      | `/Users/you/a%b`                      | `Users-you-a%25b`                    |
 
 ## Why this encoding?
 
@@ -78,10 +78,10 @@ The natural first attempt is "literal `-` doubles to `--`, literal leading `_`
 doubles to `__`" (readable, no percent escapes). That rule is ambiguous at
 segment boundaries. Concrete counterexample:
 
-- `~/foo/-bar` (file `-bar` inside `foo/`): segments `foo` and `-bar`.
+- `/foo/-bar` (file `-bar` inside `foo/`): segments `foo` and `-bar`.
   Encode literal `-` in `-bar` as `--bar`. Join with separator `-`:
   `foo` + `-` + `--bar` = `foo---bar`.
-- `~/foo-/bar` (file `bar` inside `foo-/`): segments `foo-` and `bar`.
+- `/foo-/bar` (file `bar` inside `foo-/`): segments `foo-` and `bar`.
   Encode literal `-` in `foo-` as `foo--`. Join with `-`:
   `foo--` + `-` + `bar` = `foo---bar`.
 
@@ -110,7 +110,7 @@ the full per-segment encoding is:
    - `_` -> prefix one extra `_`
    - else: leave it.
 
-Then join the encoded segments with `-`. Examples (`$HOME=/Users/you`):
+Then join the encoded segments with `-`. Examples:
 
 ```
 ~/.claude          -> Users-you-_claude
@@ -121,7 +121,7 @@ Then join the encoded segments with `-`. Examples (`$HOME=/Users/you`):
 ~/foo/-bar         -> Users-you-foo-%2Dbar       (- at segment start)
 ~/foo-/bar         -> Users-you-foo%2D-bar       (- at segment end)
 ~/foo--bar         -> Users-you-foo----bar       (internal --, doubled)
-~/repos/bu-command -> Users-you-repos-bu--command
+~/repos/bu.sh -> Users-you-repos-bu.sh
 ~/a%b              -> Users-you-a%25b
 ```
 
@@ -151,7 +151,7 @@ Worked examples of the slug rule itself:
 - `~/notes/2026/Q2.md` slugs to `Users-you-notes-2026-Q2.md` (no segment starts with `.`, so no `_` rewrite happens).
 - `/var/log/system.log` slugs to `var-log-system.log` (paths outside `$HOME` follow the same rule, just without the `Users/you` prefix).
 - `~/foo/.bar` slugs to `Users-you-foo-_bar` (only the `.bar` segment is rewritten, not the others).
-- `~/repos/bu-command` slugs to `Users-you-repos-bu--command` (the internal `-` in `bu-command` is doubled so it cannot be confused with the segment separator).
+- `~/repos/bu.sh` slugs to `Users-you-repos-bu.sh` (the internal `-` in `bu.sh` is doubled so it cannot be confused with the segment separator).
 - `~/foo/-bar` slugs to `Users-you-foo-%2Dbar` (a `-` at the start of a segment is percent-escaped instead of doubled, so it cannot bleed into the adjacent separator).
 - `~/_x` slugs to `Users-you-__x` (a literal leading `_` gains an extra `_` so it stays distinct from the `_` produced by a leading `.`).
 
@@ -172,8 +172,8 @@ The script sets `umask 077` at the top. New backup directories end up `700`
 and the copied file content keeps whatever mode it had at the source
 (`cp -a` preserves source modes).
 
-If you are not used to umask, the short version is this. When any program
-creates a file or directory, it asks the kernel for a default permission set
+If you are not used to umask, the short version is this:
+When any program creates a file or directory, it asks the kernel for a default permission set
 (typically `666` for files and `777` for directories). The umask is a bitmask
 of permission bits to subtract from that request. The system default on most
 Unix machines is `022`, which strips the write bit from group and other but
@@ -192,12 +192,6 @@ themselves still reflect the source mode, since `cp -a` preserves it. If
 the source was world-readable, the backup of it is too; the wrapper
 directory around it is not.
 
-Existing backups taken before this change keep their old permissions. To
-tighten them in place:
-
-```bash
-chmod -R go-rwx ~/.backups/backups
-```
 
 ## Examples
 
@@ -254,9 +248,6 @@ $ diff -r ~/projects/blog ~/projects/blog.restored
 
 ### Back up a directory under `/tmp` (or anywhere on the root partition)
 
-Paths outside `$HOME` use the absolute path (with the leading `/` stripped) for the
-slug. Useful for staged dumps or scratch trees:
-
 ```bash
 $ bu.sh /tmp/scratch
 /Users/you/.backups/backups/tmp-scratch/2026-05-13/scratch
@@ -285,9 +276,9 @@ $ bu.sh --restore /tmp/scratch 2026-05-13       # latest snapshot taken on that 
 $ bu.sh "~/.ssh/config"
 /Users/you/.backups/backups/Users-you-_ssh-config/2026-05-13/config
 
-$ cd ~/repos/bu-command
+$ cd ~/repos/bu.sh
 $ bu.sh bu.sh
-/Users/you/.backups/backups/Users-you-repos-bu--command-bu.sh/2026-05-13/bu.sh
+/Users/you/.backups/backups/Users-you-repos-bu.sh-bu.sh/2026-05-13/bu.sh
 ```
 
 (The script absolutizes relative paths before computing the slug, so the slug reflects where the file actually lives, not what you typed. `~/x` and `/Users/you/x` produce the same slug.)
@@ -336,7 +327,7 @@ done
 ### Daily cron snapshot at 3:07 AM
 
 ```cron
-7 3 * * * /Users/you/repos/bu-command/bu.sh /Users/you/.claude >> /Users/you/.backups/bu.log 2>&1
+7 3 * * * /Users/you/repos/bu.sh/bu.sh /Users/you/.claude >> /Users/you/.backups/bu.log 2>&1
 ```
 
 (Cron does not expand `~`. Use absolute paths.)
@@ -487,7 +478,7 @@ A self-contained test suite lives in `test_bu.sh`. It runs each test in an isola
 
 ```bash
 $ ./test_bu.sh
-Running test suite for /Users/you/repos/bu-command/bu.sh
+Running test suite for /Users/you/repos/bu.sh/bu.sh
   PASS  test_no_args_exits_2
   PASS  test_too_many_args_exits_2
   ...
