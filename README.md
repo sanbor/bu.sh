@@ -11,12 +11,10 @@ No dependencies beyond Bash and coreutils. The source is never moved or modified
 Clone the repo (or copy `bu.sh` anywhere on your `PATH`):
 
 ```bash
-git clone <this-repo> ~/repos/bu-command
-chmod +x ~/repos/bu-command/bu.sh
-ln -s ~/repos/bu-command/bu.sh ~/.local/bin/bush
+git clone https://github.com/sanbor/bu.sh ~/repos/bu.sh
+chmod +x ~/repos/bu.sh
+ln -s ~/repos/bu.sh/bu.sh ~/.local/bin/bush
 ```
-
-After symlinking, `bush` and `bu.sh` are interchangeable. Examples below use `bu.sh` for clarity.
 
 ## Synopsis
 
